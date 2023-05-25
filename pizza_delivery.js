@@ -1,5 +1,6 @@
 const express = require('express');
-var mysql = require('mysql');
+require("dotenv").config();
+const con = require('./db.js');
 const formData = require('form-data');
 const Mailgun = require('mailgun.js');
 const bcrypt = require('bcrypt');
@@ -7,6 +8,7 @@ const app = express();
 const bodyParser = require('body-parser'); // Middleware 
 const jwt = require('jsonwebtoken');
 const cookieParser = require("cookie-parser");
+
 app.use(express.urlencoded());
 app.use(express.json());
 app.use(cookieParser());
@@ -14,27 +16,15 @@ app.use(cookieParser());
 
 const mailgun = new Mailgun(formData);
 const mg = mailgun.client({
-    username: 'api',
-    key: '',
+    username: process.env.MAILGUN_USERNAME,
+    key: process.env.MAILGUN_KEY,
 });
 
 
-const secretKey = "secret";
+const secretKey = process.env.JWT_SECRET;
 
 
-//creating database connection
 
-var con = mysql.createConnection({
-    host: "localhost",
-    user: "root",
-    password: "root1234",
-    database: 'PIZZA_STORE'
-});
-
-con.connect(function (err) {
-    if (err) throw err;
-    console.log("Connected!");
-});
 
 
 //step1 
@@ -232,6 +222,6 @@ function getUserIdFromToken(token) {
 
 
 
-app.listen(3000, function () {
+app.listen(process.env.PORT, function () {
     console.log('App listening on port 3000!');
 });

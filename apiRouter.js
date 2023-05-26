@@ -145,46 +145,98 @@ router.post('/orders', authHandler, function (req, res) {
     const userId = getUserIdFromToken(req.headers.access_token);
     const orderItems = req.body;
     const params = [userId];
-    con.query("INSERT INTO ORDERS(CUSTOMER_ID,STATUS,DATE_OF_ORDER) VALUES(?,'Created',NOW());", params, function (err, result) {
+    con.beginTransaction((err) => {
         if (err) {
             console.error(err);
             return res.status(400)
                 .json({ error: "something went wrong" });
         }
-        const params = [];
-        orderItems.forEach(orderItem => {
-            const row = [orderItem.id, result.insertId, orderItem.quantity];
-            params.push(row);
-        });
-        con.query("INSERT INTO ORDER_ITEMS(ITEM_ID,ORDER_ID,QUANTITY) VALUES ?;", [params], function (err, rows) {
+        con.query("INSERT INTO ORDERS(CUSTOMER_ID,STATUS,DATE_OF_ORDER) VALUES(?,'Created',NOW());", params, function (err, result) {
             if (err) {
                 console.error(err);
+                con.rollback(() => {
+
+                })
                 return res.status(400)
                     .json({ error: "something went wrong" });
             }
-            mg.messages
-                .create('sandboxaae72b5e2bf74b3181f9f1b4efae17a0.mailgun.org', {
-                    from: "pallavisharma12011988@gmail.com",
-                    to: ["pallavisharma12011988@gmail.com"],
-                    subject: "Order Recieved",
-                    text: `Order created ${result.insertId}`,
+            const params = [];
+            orderItems.forEach(orderItem => {
+                const row = [orderItem.id, result.insertId, orderItem.quantity];
+                params.push(row);
+            });
+            con.query("INSERT INTO ORDER_ITEMS(ITEM_ID,ORDER_ID,QUANTITY) VALUES ?;", [params], function (err, rows) {
+                if (err) {
+                    console.error(err);
+                    con.rollback(() => {
+
+                    })
+                    return res.status(400)
+                        .json({ error: "something went wrong" });
+                }
+                mg.messages
+                    .create('sandboxaae72b5e2bf74b3181f9f1b4efae17a0.mailgun.org', {
+                        from: "pallavisharma12011988@gmail.com",
+                        to: ["pallavisharma12011988@gmail.com"],
+                        subject: "Order Recieved",
+                        text: `Order created ${result.insertId}`,
+                    })
+                    .then(msg => console.log(msg)) // logs response data
+                    .catch(err => console.log(err));
+                con.commit((err) => {
+
                 })
-                .then(msg => console.log(msg)) // logs response data
-                .catch(err => console.log(err));
-            return res.status(200).json({ mesaage: `Order created ${result.insertId}` });
+                return res.status(200).json({ mesaage: `Order created ${result.insertId}` });
+            });
         });
-    });
+
+    })
+
 });
 
 
 
 router.get('/orders', authHandler, (req, res) => {
     const token = req.headers.access_token;
-    const userName = getUserNameFromToken(token);
-    const myOrder = orders.filter((o) => {
-        return userName == o.userName;
+    const userId = getUserIdFromToken(token);
+    const params = [userId];
+    con.query('SELECT* FROM ORDERS WHERE CUSTOMER_ID = ?', params, function (err, orders) {
+        if (err) {
+            console.error(err);
+            return res.status(400)
+                .json({ error: "something went wrong" });
+        } else {
+            if (orders.length == 0) {
+                return res.status(400)
+                    .json({ error: "no such record exist" });
+            }
+            // orders.forEach((o) => {
+            //     const id = o.ID;
+            //     const params = [id];
+            //     con.query('SELECT* FROM ORDER_ITEMS WHERE ORDER_ID = ?', params, function (err, orderItems) {
+            //         if (err) {
+            //             console.error(err);
+            //             return res.status(400)
+            //                 .json({ error: "something went wrong" });
+            //         } else {
+            //             if (orders.length == 0) {
+            //                 return res.status(400)
+            //                     .json({ error: "no such record exist" });
+            //             }
+
+            //         }
+
+            //     })
+            //     return res.status(200).json({orders});
+            // });
+
+
+            console.log(orders);
+            return res.status(200)
+                .json(orders);
+        }
     });
-    return res.status(200).json({ order: myOrder });
+    
 });
 
 function getUserNameFromToken(token) {

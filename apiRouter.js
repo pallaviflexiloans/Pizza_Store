@@ -4,20 +4,20 @@ const bcrypt = require('bcrypt');
 const mg = require('./mailgun.js');
 const bodyParser = require('body-parser'); // Middleware 
 const jwt = require('jsonwebtoken');
-const con = require('./db.js');
+const db = require('./db.js');
 
 const secretKey = process.env.JWT_SECRET;
 
 
 router.get('/menu', function (req, res) {
-    con.query('SELECT * FROM MENU_ITEM', function (err, rows) {
-        if (err) {
-
-        } else {
-            res.send(rows);
-        }
+    db.getMenu().then((rows) => {
+        return res.status(200)
+            .json(rows);
     })
-
+        .catch((err) => {
+            return res.status(403)
+                .json({ error: 'Something went wrong' });
+        })
 });
 
 //step2
@@ -32,16 +32,16 @@ router.post('/register', function (req, res) {
     bcrypt.hash(req.body.password, 10, function (err, hash) {
         console.log(hash);
         const params = [req.body.username, hash, req.body.email];
-        con.query("INSERT INTO USERS (USERNAME,PASSWORD, EMAIL) VALUES(?,?,?);", params, function (err, result) {
-            if (err) {
+        db.registerUser(params)
+            .then((result) => {
+                return res.status(200)
+                    .json({ mesaage: `user created ${result.insertId}` });
+            })
+            .catch((err) => {
                 console.error(err);
                 return res.status(400)
                     .json({ error: "something went wrong" });
-            } else {
-                return res.status(200)
-                    .json({ mesaage: `user created ${result.insertId}` });;
-            }
-        });
+            })
     });
 });
 //step3
@@ -55,12 +55,8 @@ router.post('/auth', function (req, res) {
 
     const params = [req.body.username];
 
-    con.query('SELECT * FROM USERS WHERE USERNAME = ?', params, function (err, rows) {
-        if (err) {
-            console.error(err);
-            return res.status(400)
-                .json({ error: "something went wrong" });
-        } else {
+    db.getAuthToken(params)
+        .then((rows) => {
             if (rows.length == 0) {
                 return res.status(400)
                     .json({ error: "Invalid credentials" });
@@ -69,9 +65,7 @@ router.post('/auth', function (req, res) {
                 return res.status(400)
                     .json({ error: "Invalid credentials" });
             }
-
             console.log(rows[0].ID);
-
             let token = jwt.sign({ user: req.body.username, claim: "user", id: rows[0].ID }, secretKey, {
                 expiresIn: 86400 // expires in 24 hours
             });
@@ -82,8 +76,12 @@ router.post('/auth', function (req, res) {
                 })
                 .status(200)
                 .json({ access_token: token });
-        }
-    })
+        })
+        .catch((err) => {
+            console.error(err);
+            return res.status(400)
+                .json({ error: "something went wrong" });
+        })
 });
 
 
@@ -114,12 +112,8 @@ const authHandler = (req, res, next) => {
 router.get('/users/:id', authHandler, function (req, res) {
     console.log(req.params.id);
     const params = [req.params.id];
-    con.query('SELECT * FROM USERS WHERE id = ?', params, function (err, rows) {
-        if (err) {
-            console.error(err);
-            return res.status(400)
-                .json({ error: "something went wrong" });
-        } else {
+    db.getUserDetails(params)
+        .then((rows) => {
             if (rows.length == 0) {
                 return res.status(400)
                     .json({ error: "no such record exist" });
@@ -127,10 +121,14 @@ router.get('/users/:id', authHandler, function (req, res) {
             console.log(rows);
             return res.status(200)
                 .json(rows[0]);
-        }
-
-    });
+        })
+        .catch((err) => {
+            console.error(err);
+            return res.status(400)
+                .json({ error: "something went wrong" });
+        })
 });
+
 
 
 router.put('/users/:id', function (req, res) {
@@ -145,53 +143,25 @@ router.post('/orders', authHandler, function (req, res) {
     const userId = getUserIdFromToken(req.headers.access_token);
     const orderItems = req.body;
     const params = [userId];
-    con.beginTransaction((err) => {
-        if (err) {
-            console.error(err);
+    db.createOrder(params,orderItems)
+        .then((orderId) => {
+            mg.messages
+                .create(process.env.MAILGUN_SANDBOX, {
+                    from: process.env.PIZZA_STORE_MAILID,
+                    to: ["pallavisharma12011988@gmail.com"],
+                    subject: "Order Recieved",
+                    text: `Order created ${orderId}`,
+                })
+                .then(msg => console.log(msg)) // logs response data
+                .catch(err => console.log(err));
+            
+            return res.status(200).json({ mesaage: `Order created ${orderId}` });
+        })
+        .catch((err) => {
+            console.log(err);
             return res.status(400)
                 .json({ error: "something went wrong" });
-        }
-        con.query("INSERT INTO ORDERS(CUSTOMER_ID,STATUS,DATE_OF_ORDER) VALUES(?,'Created',NOW());", params, function (err, result) {
-            if (err) {
-                console.error(err);
-                con.rollback(() => {
-
-                })
-                return res.status(400)
-                    .json({ error: "something went wrong" });
-            }
-            const params = [];
-            orderItems.forEach(orderItem => {
-                const row = [orderItem.id, result.insertId, orderItem.quantity];
-                params.push(row);
-            });
-            con.query("INSERT INTO ORDER_ITEMS(ITEM_ID,ORDER_ID,QUANTITY) VALUES ?;", [params], function (err, rows) {
-                if (err) {
-                    console.error(err);
-                    con.rollback(() => {
-
-                    })
-                    return res.status(400)
-                        .json({ error: "something went wrong" });
-                }
-                mg.messages
-                    .create('sandboxaae72b5e2bf74b3181f9f1b4efae17a0.mailgun.org', {
-                        from: "pallavisharma12011988@gmail.com",
-                        to: ["pallavisharma12011988@gmail.com"],
-                        subject: "Order Recieved",
-                        text: `Order created ${result.insertId}`,
-                    })
-                    .then(msg => console.log(msg)) // logs response data
-                    .catch(err => console.log(err));
-                con.commit((err) => {
-
-                })
-                return res.status(200).json({ mesaage: `Order created ${result.insertId}` });
-            });
-        });
-
-    })
-
+        })
 });
 
 
@@ -200,43 +170,43 @@ router.get('/orders', authHandler, (req, res) => {
     const token = req.headers.access_token;
     const userId = getUserIdFromToken(token);
     const params = [userId];
-    con.query('SELECT* FROM ORDERS WHERE CUSTOMER_ID = ?', params, function (err, orders) {
-        if (err) {
-            console.error(err);
-            return res.status(400)
-                .json({ error: "something went wrong" });
-        } else {
+    db.getOrders(params)
+        .then((orders) => {
             if (orders.length == 0) {
                 return res.status(400)
                     .json({ error: "no such record exist" });
             }
-            // orders.forEach((o) => {
-            //     const id = o.ID;
-            //     const params = [id];
-            //     con.query('SELECT* FROM ORDER_ITEMS WHERE ORDER_ID = ?', params, function (err, orderItems) {
-            //         if (err) {
-            //             console.error(err);
-            //             return res.status(400)
-            //                 .json({ error: "something went wrong" });
-            //         } else {
-            //             if (orders.length == 0) {
-            //                 return res.status(400)
-            //                     .json({ error: "no such record exist" });
-            //             }
+            return res.status(200).json(orders);
+        })
+        .catch((err) => {
+            console.error(err);
+            return res.status(400)
+                .json({ error: "something went wrong" });
+        })
 
-            //         }
+    // orders.forEach((o) => {
+    //     const id = o.ID;
+    //     const params = [id];
+    //     con.query('SELECT* FROM ORDER_ITEMS WHERE ORDER_ID = ?', params, function (err, orderItems) {
+    //         if (err) {
+    //             console.error(err);
+    //             return res.status(400)
+    //                 .json({ error: "something went wrong" });
+    //         } else {
+    //             if (orders.length == 0) {
+    //                 return res.status(400)
+    //                     .json({ error: "no such record exist" });
+    //             }
 
-            //     })
-            //     return res.status(200).json({orders});
-            // });
+    //         }
+
+    //     })
+    //     return res.status(200).json({orders});
+    // });
 
 
-            console.log(orders);
-            return res.status(200)
-                .json(orders);
-        }
-    });
-    
+
+
 });
 
 function getUserNameFromToken(token) {

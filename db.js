@@ -51,14 +51,24 @@ db.getAuthToken = (params) => {
 }
 
 
-
+const GET_ORDER_QUERY = "select o.id order_id, mi.name, mi.price, mi.size, o.date_of_order from orders o inner join order_items oi on o.id  = oi.order_id inner join menu_item mi on oi.item_id= mi.id where o.customer_id = ?"
 db.getOrders = (params) => {
+
     return new Promise((resolve, reject) => {
-        con.query('SELECT* FROM ORDERS WHERE CUSTOMER_ID = ?', params, function (err, orders) {
+        con.query(GET_ORDER_QUERY, params, function (err, rows) {
             if (err) {
                 reject(err);
             } else {
-                resolve(orders);
+                var ordersMap = {};
+                rows.forEach((row)=>{
+                    if(!ordersMap[row.order_id]){
+                        ordersMap[row.order_id] = {};
+                        ordersMap[row.order_id].date = row.date_of_order;
+                        ordersMap[row.order_id].items = [];
+                    }
+                    ordersMap[row.order_id]["items"].push({"name" :row.name, "size" : row.size, "price" : row.price});
+                })
+                resolve(ordersMap);
             }
         });
     })
@@ -113,6 +123,8 @@ db.createOrder = (params,orderItems) => {
         });
     });
 };
+
+
 
 
 module.exports = db;

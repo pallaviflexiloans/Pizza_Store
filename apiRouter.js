@@ -5,8 +5,35 @@ const mg = require('./mailgun.js');
 const bodyParser = require('body-parser'); // Middleware 
 const jwt = require('jsonwebtoken');
 const db = require('./db.js');
+const path = require('path');
 
 const secretKey = process.env.JWT_SECRET;
+
+const authHandler = (req, res, next) => {
+    console.log('called authorization method');
+    // if(!req.cookies || !req.cookies.access_token){
+    //     return res.sendStatus(403);
+    // }
+    let token = req.headers.access_token;
+    console.log(token);
+    if(!token){
+       token = req.cookies.access_token; 
+    }
+    if (!token)
+        return res.sendStatus(403);
+    try {
+        const data = jwt.verify(token, secretKey);
+        console.log(data.claim);
+        if (!(data.claim === 'user')) {
+            return res.sendStatus(403);
+        }
+        //
+        return next();
+    } catch {
+        return res.sendStatus(403);
+    }
+}
+
 
 
 router.get('/menu', function (req, res) {
@@ -15,6 +42,7 @@ router.get('/menu', function (req, res) {
             .json(rows);
     })
         .catch((err) => {
+            console.log(err);
             return res.status(403)
                 .json({ error: 'Something went wrong' });
         })
@@ -44,6 +72,25 @@ router.post('/register', function (req, res) {
             })
     });
 });
+
+
+router.get('/login', function (req, res) {
+    res.sendFile(path.join(__dirname+'/static/login.html'));
+})
+
+router.get('/register',function (req, res) {
+    res.sendFile(path.join(__dirname+'/static/register.html'));
+})
+
+router.get('/home', authHandler,function (req, res) {
+    res.sendFile(path.join(__dirname+'/static/home.html'));
+})
+
+router.get('/logout',function (req, res) {
+    res.setHeader('set-cookie', 'access_token =; max-age=0');
+    res.sendFile(path.join(__dirname+'/static/logout.html'));
+})
+
 //step3
 router.post('/auth', function (req, res) {
     console.log(req.body.username);
@@ -69,6 +116,7 @@ router.post('/auth', function (req, res) {
             let token = jwt.sign({ user: req.body.username, claim: "user", id: rows[0].ID }, secretKey, {
                 expiresIn: 86400 // expires in 24 hours
             });
+            
             return res
                 .cookie("access_token", token, {
                     httpOnly: true,
@@ -85,28 +133,6 @@ router.post('/auth', function (req, res) {
 });
 
 
-const authHandler = (req, res, next) => {
-    console.log('called authorization method');
-    // if(!req.cookies || !req.cookies.access_token){
-    //     return res.sendStatus(403);
-    // }
-    const token = req.headers.access_token;
-    console.log(token);
-
-    if (!token)
-        return res.sendStatus(403);
-    try {
-        const data = jwt.verify(token, secretKey);
-        console.log(data.claim);
-        if (!(data.claim === 'user')) {
-            return res.sendStatus(403);
-        }
-        //
-        return next();
-    } catch {
-        return res.sendStatus(403);
-    }
-}
 
 
 router.get('/users/:id', authHandler, function (req, res) {
@@ -167,7 +193,10 @@ router.post('/orders', authHandler, function (req, res) {
 
 
 router.get('/orders', authHandler, (req, res) => {
-    const token = req.headers.access_token;
+    let token = req.headers.access_token;
+    if(!token){
+         token = req.cookies.access_token; 
+    }
     const userId = getUserIdFromToken(token);
     const params = [userId];
     db.getOrders(params)

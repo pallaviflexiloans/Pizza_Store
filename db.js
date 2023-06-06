@@ -15,7 +15,7 @@ con.connect(function (err) {
 let db = {};
 db.getMenu = () => {
     return new Promise((resolve, reject) => {
-        con.query('SELECT * FROM MENU_ITEM', function (err, rows) {
+        con.query('SELECT * FROM MENU_ITEMS', function (err, rows) {
             if (err) {
                 reject(err);
             } else {
@@ -51,7 +51,7 @@ db.getAuthToken = (params) => {
 }
 
 
-const GET_ORDER_QUERY = "select o.id order_id, mi.name, mi.price, mi.size, o.date_of_order from orders o inner join order_items oi on o.id  = oi.order_id inner join menu_item mi on oi.item_id= mi.id where o.customer_id = ?"
+const GET_ORDER_QUERY = "select o.id order_id, mi.name, mi.price, mi.size, o.date_of_order from orders o inner join order_items oi on o.id  = oi.order_id inner join menu_items mi on oi.item_id= mi.id where o.customer_id = ?"
 db.getOrders = (params) => {
 
     return new Promise((resolve, reject) => {

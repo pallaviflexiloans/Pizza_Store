@@ -6,6 +6,9 @@ const bodyParser = require('body-parser'); // Middleware
 const jwt = require('jsonwebtoken');
 const db = require('./db.js');
 const path = require('path');
+ 
+const stripe = require("stripe")(process.env.STRIPE_SECRET_KEY);
+
 
 const secretKey = process.env.JWT_SECRET;
 
@@ -33,6 +36,7 @@ const authHandler = (req, res, next) => {
         return res.sendStatus(403);
     }
 }
+
 
 
 
@@ -249,4 +253,6 @@ function getUserIdFromToken(token) {
     return data.id;
 
 }
+
+
 module.exports = router;

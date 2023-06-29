@@ -32,6 +32,8 @@
                             <td>${orderDetails.date}</td>
                             <td></td>
                             <td></td>
+                            <td>${orderDetails.status}</td>
+
                         </tr>`
                         $('#body').append(orderTemplate);
                         let items = orderDetails.items;
@@ -51,33 +53,55 @@
                             <td></td>
                             <td>TOTAL</td>
                             <td>${total}</td>
+                            ${orderDetails.status === 'Created' ? `<td><button id="payButton" type="button" class="btn btn-primary" onClick=paymentHandler(${orderId})>Pay Now !</button></td>` : ' '}
+                            
                         </tr>`
                         $('#body').append(totalTemplate);
                     })
                 }
             });
-        })
+        });
 
     </script>
-</head>
+    <script>
+        function paymentHandler(orderId) {
+            console.log('payment handler invoked')
+            const data = { orderId: orderId };
+            $.ajax({
+                type: "POST",
+                url: '/payment',
+                contentType: 'application/json',
+                data: JSON.stringify(data),
+                success: function (data) {
+                    console.log(data.url);
+                    window.location = data.url
+                }
+            });
+        }
+    </script>
+</head> 
 
 <body>
     <nav class="navbar navbar-expand-lg navbar-light bg-light">
         <a class="navbar-brand" href="#">Pizza Store</a>
-        <button class="navbar-toggler" type="button" data-toggle="collapse" data-target="#navbarNav" aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
-          <span class="navbar-toggler-icon"></span>
+        <button class="navbar-toggler" type="button" data-toggle="collapse" data-target="#navbarNav"
+            aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
+            <span class="navbar-toggler-icon"></span>
         </button>
         <div class="collapse navbar-collapse justify-content-end" id="navbarNav">
-          <ul class="navbar-nav">
-            <li class="nav-item active">
-              <a class="nav-link" href="#">Home <span class="sr-only">(current)</span></a>
-            </li>
-            <li class="nav-item active">
-                <a class="nav-link" href="/logout">Logout<span class="sr-only">(current)</span></a>
-              </li>
-          </ul>
+            <ul class="navbar-nav">
+                <li class="nav-item active">
+                    <a class="nav-link" href="/order-history">Order History <span class="sr-only">(current)</span></a>
+                </li>
+                <li class="nav-item active">
+                    <a class="nav-link" href="/create-order">Home <span class="sr-only">(current)</span></a>
+                </li>
+                <li class="nav-item active">
+                    <a class="nav-link" href="/logout">Logout<span class="sr-only">(current)</span></a>
+                </li>
+            </ul>
         </div>
-      </nav>
+    </nav>
     <div class="container">
         <h1>Order Details</h1>
         <table class="table">
@@ -87,11 +111,16 @@
                     <th scope="col">Order Date</th>
                     <th scope="col">Order Item</th>
                     <th scope="col">Amount</th>
+                    <th scope="col">Order Status</th>
                 </tr>
             </thead>
             <tbody id="body">
             </tbody>
         </table>
+        <div class="text-right">
+
+        </div>
+
     </div>
 
 </body>

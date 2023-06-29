@@ -1,0 +1,128 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+    <!-- Required meta tags -->
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+
+    <!-- Bootstrap CSS -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@4.3.1/dist/css/bootstrap.min.css"
+        integrity="sha384-ggOyR0iXCbMQv3Xipma34MD+dH/1fQ784/j6cY/iJTQUOhcWr7x9JvoRxT2MZw1T" crossorigin="anonymous">
+    <script src="https://code.jquery.com/jquery-3.1.1.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/popper.js@1.14.7/dist/umd/popper.min.js"
+        integrity="sha384-UO2eT0CpHqdSJQ6hJty5KVphtPhzWj9WO1clHTMGa3JDZwrnQq4sF86dIHNDz0W1"
+        crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@4.3.1/dist/js/bootstrap.min.js"
+        integrity="sha384-JjSmVgyd0p3pXB1rRibZUAYoIIy6OrQ6VrjIEaFf/nJGzIxFDsf4x0xIM+B07jRM"
+        crossorigin="anonymous"></script>
+
+    <title>Welcome</title>
+    <script>
+        $(document).ready(() => {
+
+            $.ajax({
+                type: "GET",
+                url: '/admin-orders',
+                success: function (data) {
+                    Object.keys(data).forEach((orderId) => {
+                        let orderDetails = data[orderId];
+                        const orderTemplate = `<tr>
+                            <td>${orderId}</td>
+                            <td>${orderDetails.date}</td>
+                            <td></td>
+                            <td></td>
+                            <td>${orderDetails.status}</td>
+
+                        </tr>`
+                        $('#body').append(orderTemplate);
+                        let items = orderDetails.items;
+                        let total = 0;
+                        items.forEach((item) => {
+                            total = total + item.price;
+                            const orderItemTemplate = `<tr>
+                            <td></td>
+                            <td></td>
+                            <td>${item.name}</td>
+                            <td>${item.price}</td>
+                        </tr>`
+                            $('#body').append(orderItemTemplate);
+                        })
+                        const totalTemplate = `<tr>
+                            <td></td>
+                            <td></td>
+                            <td>TOTAL</td>
+                            <td>${total}</td>
+                            ${orderDetails.status === 'Created' ? `<td><button id="payButton" type="button" class="btn btn-primary" onClick=paymentHandler(${orderId})>Pay Now !</button></td>` : ' '}
+                            
+                        </tr>`
+                        $('#body').append(totalTemplate);
+                    })
+                }
+            });
+        });
+
+    </script>
+    <script>
+        function paymentHandler(orderId) {
+            console.log('payment handler invoked')
+            const data = { orderId: orderId };
+            $.ajax({
+                type: "POST",
+                url: '/payment',
+                contentType: 'application/json',
+                data: JSON.stringify(data),
+                success: function (data) {
+                    console.log(data.url);
+                    window.location = data.url
+                }
+            });
+        }
+    </script>
+</head> 
+
+<body>
+    <nav class="navbar navbar-expand-lg navbar-light bg-light">
+        <a class="navbar-brand" href="#">Pizza Store</a>
+        <button class="navbar-toggler" type="button" data-toggle="collapse" data-target="#navbarNav"
+            aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
+            <span class="navbar-toggler-icon"></span>
+        </button>
+        <div class="collapse navbar-collapse justify-content-end" id="navbarNav">
+            <ul class="navbar-nav">
+                <li class="nav-item active">
+                    <a class="nav-link" href="/order-history">Order History <span class="sr-only">(current)</span></a>
+                </li>
+                <li class="nav-item active">
+                    <a class="nav-link" href="/create-order">Home <span class="sr-only">(current)</span></a>
+                </li>
+                <li class="nav-item active">
+                    <a class="nav-link" href="/logout">Logout<span class="sr-only">(current)</span></a>
+                </li>
+            </ul>
+        </div>
+    </nav>
+    <div class="container">
+        <h1>Order Details</h1>
+        <table class="table">
+            <thead>
+                <tr>
+                    <th scope="col">#</th>
+                    <th scope="col">Order Date</th>
+                    <th scope="col">Order Item</th>
+                    <th scope="col">Amount</th>
+                    <th scope="col">Order Status</th>
+                </tr>
+            </thead>
+            <tbody id="body">
+            </tbody>
+        </table>
+        <div class="text-right">
+
+        </div>
+
+    </div>
+
+</body>
+
+</html>

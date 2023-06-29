@@ -17,27 +17,27 @@
         integrity="sha384-JjSmVgyd0p3pXB1rRibZUAYoIIy6OrQ6VrjIEaFf/nJGzIxFDsf4x0xIM+B07jRM"
         crossorigin="anonymous"></script>
 
-    <title>Register</title>
+    <title>Login</title>
     <script>
         $(document).ready(() => {
-            $('#registerForm').submit((event) => {
+            $('#loginForm').submit((event) => {
                 event.preventDefault();
                 const data = {
                         username: $("#username").val(),
-                        password: $("#password").val(),
-                        email : $("#email").val()
+                        password: $("#password").val()
                     }
                 $.ajax({
                     type: "POST",
-                    url: '/register',
+                    url: '/auth',
                     contentType: 'application/json',
                     data: JSON.stringify(data),
                     success: function (data) {
-                        window.location.href = '/login'
+                        window.location.href = '/admin-home'
                     },
                     error: function (jqXHR, textStatus, errorThrown) { 
-                        alert("Registration failed!"); 
+                        alert("login failed!"); 
                     }
+                    
                 });
             })
         })
@@ -46,7 +46,8 @@
 
 <body>
     <div class="container">
-        <form id="registerForm">
+        <h2>Admin Login</h2>
+        <form id="loginForm">
             <div class="form-group">
                 <label for="username">User ID</label>
                 <input type="text" class="form-control" id="username" aria-describedby="emailHelp"
@@ -55,17 +56,12 @@
                     else.</small>
             </div>
             <div class="form-group">
-                <label for="password">Password</label>
+                <label for="">Password</label>
                 <input type="password" class="form-control" id="password" placeholder="Password">
             </div>
-            <div class="form-group">
-                <label for="email">Email</label>
-                <input type="email" class="form-control" id="email" placeholder="Enter your email id">
+            <div class="form-group form-check">
+                <a href="/register">Register new user!</a>
             </div>
-            <!-- <div class="form-group form-check">
-                <input type="checkbox" class="form-check-input" id="exampleCheck1">
-                <label class="form-check-label" for="exampleCheck1">Check me out</label>
-            </div> -->
             <button type="submit" class="btn btn-primary">Submit</button>
         </form>
 
